@@ -7,7 +7,6 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PointF;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -48,7 +47,7 @@ public class SelectMovieSeatActivity extends Activity implements OnTouchListener
     LinearLayout rowView;
     private SeatMo[][] seatTable;
 
-    public List<SeatMo> selectedSeats;// 保存选中座位
+    public List<SeatMo> selectedSeats;
 
     private int screenWidth;
     private int minLeft;
@@ -97,7 +96,7 @@ public class SelectMovieSeatActivity extends Activity implements OnTouchListener
 
     int[] oldClick = new int[2];
    	int[] newClick = new int[2];
-    boolean eatClick = true;//在缩放和移动的时候,不触发click事件
+    boolean eatClick = true;// when drag, ignore click
 
     public boolean onTouch(View v, MotionEvent event) {
         switch (event.getAction() & MotionEvent.ACTION_MASK) {
@@ -134,12 +133,12 @@ public class SelectMovieSeatActivity extends Activity implements OnTouchListener
         float diffY = Math.abs(mPreFocusY - mFocusY);
         float diffX = Math.abs(mPreFocusX - mFocusX);
         //Log.i(TAG, "diffScal = " + diffScal + ", preSeatWidth = " + preSeatWidth + ", diffY ＝ " + diffY + ", diffX = " + diffX);
-        if (!eatClick || diffY > 5 || diffX > 5 || diffScal > 0.01) {//减少绘制次数
+        if (!eatClick || diffY > 5 || diffX > 5 || diffScal > 0.01) {// avoid too many draw
             mMatrix.reset();
             mPreScaleFactor = mScaleFactor;
             mPreFocusY = mFocusY;
             mPreFocusX = mFocusX;
-            //限定移动区域
+            //drag area
             minLeft = (int) (defWidth * mScaleFactor * maxColumn) - screenWidth;
             mFocusX = minLeft > 0 ?
                     Math.max(-minLeft, Math.min(mFocusX, defWidth * mScaleFactor))
@@ -152,13 +151,11 @@ public class SelectMovieSeatActivity extends Activity implements OnTouchListener
             seatTableView.mScaleFactor = mScaleFactor;
             seatTableView.mPosX = mFocusX;
             seatTableView.mPosY = mFocusY;
-            //重新绘制
+
             int seatWidth = (int) (defWidth * mScaleFactor);
-            // 可购买座位
+
             seatTableView.seat_sale = createScaledBitmap(seatTableView.SeatSale, seatWidth, seatWidth, true);
-            // 红色 已售座位
             seatTableView.seat_sold = createScaledBitmap(seatTableView.SeatSold, seatWidth, seatWidth, true);
-            // 绿色 我的选择
             seatTableView.seat_selected = createScaledBitmap(seatTableView.SeatSelected, seatWidth, seatWidth, true);
             seatTableView.invalidate();
             onChanged();
@@ -171,12 +168,12 @@ public class SelectMovieSeatActivity extends Activity implements OnTouchListener
     public void onChanged() {
         rowView.removeAllViews();
         rowView.setPadding(getResources().getDimensionPixelSize(R.dimen.padding_1dp),
-                (int) (mFocusY), 0, 0);//上下移动
+                (int) (mFocusY), 0, 0);
         //rowView.setBackgroundColor(getResources().getColor(R.color.black));
 //        rowView.startAnimation(alpha);
         for (int i = 0; i < seatTableView.getRowSize(); i++) {
             TextView textView = new TextView(SelectMovieSeatActivity.this);
-            //座位有可能为空
+
             for (int j = 0; j < seatTableView.getColumnSize(); j++) {
                 if (seatTable[i][j] != null) {
                     textView.setText(seatTable[i][j].rowName);
@@ -228,8 +225,8 @@ public class SelectMovieSeatActivity extends Activity implements OnTouchListener
                 seat.row = i;
                 seat.column = j;
                 seat.rowName = String.valueOf((char)('A' + i));
-                seat.seatName = seat.rowName + "排" + (j + 1) + "座";
-                seat.status = randInt(-2, 1);//假设-2为空座位
+                seat.seatName = seat.rowName + "Row" + (j + 1) + "Seat";
+                seat.status = randInt(-2, 1);
                 seatTable[i][j] = seat.status == -2 ? null : seat;
             }
         }
@@ -243,10 +240,10 @@ public class SelectMovieSeatActivity extends Activity implements OnTouchListener
     }
 
     int[] noSeat = {-1, -1};
-    //click的坐标
+    //click position(x, y)
     public int[] getClickPoint(MotionEvent event) {
         float currentXPosition = event.getX() - mFocusX;
-        float currentYPosition = event.getY() - mFocusY;//修正坐标
+        float currentYPosition = event.getY() - mFocusY;
         float area = seatTableView.getSeatWidth();
         for (int i = 0; i < seatTableView.getRowSize(); i++) {
             for (int j = 0; j < seatTableView.getColumnSize(); j++) {
@@ -255,7 +252,7 @@ public class SelectMovieSeatActivity extends Activity implements OnTouchListener
                         && (i * area) < currentYPosition
                         && currentYPosition < i * area + area
                         && seatTable[i][j] != null
-                        && seatTable[i][j].status >= 1) {//1 和 2  才能被点击
+                        && seatTable[i][j].status >= 1) {
 
                     return new int[]{i, j};
                 }

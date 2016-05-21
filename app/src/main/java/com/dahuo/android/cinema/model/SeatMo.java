@@ -6,24 +6,24 @@ package com.dahuo.android.cinema.model;
 public class SeatMo extends BaseMo {
 
     /**
-     * 座位名称：几排几座
+     * seat full name
      */
     public String seatName;
     /**
-     * 行名称：A排
+     * row Name
      */
 	public String rowName;
     /**
-     * 行坐标
+     * row index
      */
 	public int row;
     /**
-     * 列坐标
+     * column index
      */
 	public int column;
 
     /**
-     * 座位状态:1：可售，0：已售，-1：删除(非法)
+     * seat status:1：available，0：sold，-1：unavailable
      */
 	public int status;
 

@@ -19,10 +19,10 @@ public class SeatTableView extends View {
     Bitmap seat_sale, seat_sold, seat_selected;
     Bitmap SeatSale, SeatSold, SeatSelected;
 
-    private int seatWidth;//座位图的宽,长宽相同
-    private int defWidth;//初始值
+    private int seatWidth;// seat size : width == height
+    private int defWidth;// default value
 
-    //放大率和移动位置
+    // scale
     public float mScaleFactor = 1.f;
     public float mPosX = .0f;
     public float mPosY = .0f;
@@ -32,7 +32,7 @@ public class SeatTableView extends View {
     private int rowSize;
     private int columnSize;
 
-    private Paint linePaint;//中央线的绘制
+    private Paint linePaint;// the center line
 
     int width;
     int height;
@@ -59,7 +59,7 @@ public class SeatTableView extends View {
 
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        //只绘制可见的座位图
+        // draw visible seat
         if(defWidth < 10) {
             throw new IllegalArgumentException("the width must > 10, the value is " + defWidth);
         }
@@ -68,32 +68,32 @@ public class SeatTableView extends View {
         height = getMeasuredHeight();
 
 
-        // 可购买座位
+        // sale
         if (seat_sale == null) {
             seat_sale = createScaledBitmap(SeatSale, seatWidth, seatWidth, true);
         }
-        // 红色 已售座位
+        // sold
         if (seat_sold == null) {
             seat_sold = createScaledBitmap(SeatSold, seatWidth, seatWidth, true);
         }
-        // 绿色 我的选择
+        // selected
         if (seat_sold == null) {
             seat_sold = createScaledBitmap(SeatSelected, seatWidth, seatWidth, true);
         }
 
-        // 画座位
+        // draw begin
         int m = (int)(mPosY + seatWidth);
         m = m >= 0 ? 0 : -m / seatWidth;
         int n = Math.min(rowSize - 1, m + (height / seatWidth) + 2);//两边多显示1列,避免临界的突然消失的现象
         for (int i = m; i <= n; i++) {
-            //绘制中线,座位间隔由图片来做,简化处理
+            //
             if (linePaint != null) {
                 canvas.drawLine((columnSize * seatWidth) / 2 + mPosX, i * (seatWidth) + mPosY,
                         (columnSize * seatWidth) / 2 + mPosX, i * (seatWidth) + seatWidth + mPosY, linePaint);
             }
             int k = (int)(mPosX + seatWidth + 0.5f);
-            k = k > 0 ? 0 : -k / seatWidth;//移动距离不可能出现移到-rowSize
-            int l = Math.min(columnSize - 1, k + (width / seatWidth) + 2);//两边多显示1列,避免临界的突然消失的现象
+            k = k > 0 ? 0 : -k / seatWidth;
+            int l = Math.min(columnSize - 1, k + (width / seatWidth) + 2);// draw +2 column
             for (int j = k; j <= l; j++) {
 
                 if (seatTable[i][j] != null) {
