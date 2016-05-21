@@ -2,7 +2,12 @@ SelectMovieSeat
 ===============
 
 ## Thanks：
-android-gesture-detectors：https://github.com/Almeros/android-gesture-detectors
+android-gesture-detectors：[android-gesture-detectors](https://github.com/Almeros/android-gesture-detectors)
+
+
+### Screenshot  
+![Screenshot](https://raw.githubusercontent.com/captain-miao/me.github.com/master/screenshot/select_movie_seat.gif "Screenshot")
+
 
 
 功能：<br>
@@ -16,7 +21,7 @@ android-gesture-detectors：https://github.com/Almeros/android-gesture-detectors
 8. 缩放比率
 
 
-使用方法：http://nobugs.sinaapp.com/?p=824
+使用方法：[中文](http://nobugs.sinaapp.com/?p=824)
 
 ## License
 
