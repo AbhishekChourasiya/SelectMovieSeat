@@ -21,8 +21,6 @@ android-gesture-detectors：[android-gesture-detectors](https://github.com/Almer
 8. 缩放比率
 
 
-使用方法：[中文](http://nobugs.sinaapp.com/?p=824)
-
 ## License
 
     Copyright 2014, 2015, 2016 captain_miao
