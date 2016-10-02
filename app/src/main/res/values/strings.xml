@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">SeatTable</string>
     <string name="cinema_screen">Screen</string>
+    <string name="seat_max_number" formatted="false">最多 %d 张</string>
 </resources>

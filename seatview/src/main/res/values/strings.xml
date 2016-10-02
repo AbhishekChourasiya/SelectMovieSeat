@@ -1,0 +1,4 @@
+<resources>
+    <dimen name="default_seat_width">20dp</dimen>
+    <dimen name="default_seat_height">20dp</dimen>
+</resources>

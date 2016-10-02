@@ -1,24 +1,14 @@
 SelectMovieSeat
 ===============
 
+Code refactoring
+
 ## Thanks：
-android-gesture-detectors：[android-gesture-detectors](https://github.com/Almeros/android-gesture-detectors)
+qifengdeqingchen/SeatTable：[SeatTable](https://github.com/qifengdeqingchen/SeatTable)
 
 
 ### Screenshot  
 ![Screenshot](https://raw.githubusercontent.com/captain-miao/me.github.com/master/screenshot/select_movie_seat.gif "Screenshot")
-
-
-
-功能：<br>
-1. 显示座位图<br>
-2. 可缩放<br>
-3. 可移动<br>
-4. 可选座<br>
-5. 左侧显示座位排号<br>
-6. 中间线<br>
-7. 只绘制可见的座位图<br>
-8. 缩放比率
 
 
 ## License
