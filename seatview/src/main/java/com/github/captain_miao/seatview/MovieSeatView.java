@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -18,6 +19,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.Scroller;
 
 /**
  * @author YanLu
@@ -57,6 +59,7 @@ public class MovieSeatView extends View {
     private SeatPresenter mPresenter;
 
     private Canvas mCanvas;
+    private Scroller mScroller;
     public MovieSeatView(Context context) {
         super(context);
     }
@@ -97,7 +100,7 @@ public class MovieSeatView extends View {
             typedArray.recycle();
             throw new RuntimeException("must has iconSeatOnSale, iconSeatSold and iconSeatSelected");
         }
-
+        mScroller = new Scroller(context);
     }
 
 
@@ -149,7 +152,7 @@ public class MovieSeatView extends View {
             } else if (seat.isSelected()) {
                 canvas.drawBitmap(mIconSelected, mDrawMatrix, mPaint);
             } else {
-                Log.d(TAG, "It's skip " + seat.getSeatName());
+                //Log.d(TAG, "It's skip " + seat.getSeatName());
             }
         }
 
@@ -208,7 +211,7 @@ public class MovieSeatView extends View {
                     } else if (seat.isSelected()) {
                         canvas.drawBitmap(mIconSelected, mDrawMatrix, mPaint);
                     } else {
-                        Log.d(TAG, "It's skip " + seat.getSeatName());
+                        //Log.d(TAG, "It's skip " + seat.getSeatName());
                     }
                 }
 
@@ -228,6 +231,16 @@ public class MovieSeatView extends View {
         invalidate();
     }
 
+    @Override
+    public void computeScroll() {
+        if (mScroller.computeScrollOffset()) {
+            float x = mScroller.getCurrX() - getTranslateX();
+            float y = mScroller.getCurrY() - getTranslateY();
+            mMatrix.postTranslate(x, y);
+        }
+        invalidate();
+    }
+
     private int downX, downY;
     private boolean pointer;
     int lastX;
@@ -237,7 +250,12 @@ public class MovieSeatView extends View {
         int y = (int) event.getY();
         int x = (int) event.getX();
         super.onTouchEvent(event);
+        Log.d(TAG, mScroller.getCurrX() + "=x, " + mScroller.getCurrY() + "=y");
+        View viewGroup = ((View) getParent());
+        int startX = viewGroup.getScrollX() ;
+        int startY = viewGroup.getScrollY();
 
+        Log.d(TAG, startX + "=getScrollX(), " + startY + "=getScrollY()");
         mScaleGestureDetector.onTouchEvent(event);
         mGestureDetector.onTouchEvent(event);
         int pointerCount = event.getPointerCount();
@@ -259,8 +277,18 @@ public class MovieSeatView extends View {
                     if ((downDX > 10 || downDY > 10) && !pointer) {
                         int dx = x - lastX;
                         int dy = y - lastY;
-                        mMatrix.postTranslate(dx, dy);
-                        invalidate();
+
+                        int sumX = (int) getTranslateX() + dx;
+                        int sumY = (int) getTranslateY() + dy;
+                        int maxW = (int) (mSeatWidth * mSeatTable[0].length * getMatrixScaleX() + 400 * getMatrixScaleX()) - getWidth();
+                        int maxH = (int) (mSeatHeight * mSeatTable.length * getMatrixScaleY() + 400 * getMatrixScaleX()) - getHeight();
+
+                        int offsetX = (sumX <= 200 && sumX >= -maxW) ? dx : 0;
+                        int offsetY = (sumY <= 200 && sumY >= -maxH) ? dy : 0;
+                        if(offsetX != 0 && offsetY != 0) {
+                            mMatrix.postTranslate(offsetX, offsetY);
+                            invalidate();
+                        }
                     }
                 }
                 break;
@@ -270,7 +298,7 @@ public class MovieSeatView extends View {
                 int downDX = Math.abs(x - downX);
                 int downDY = Math.abs(y - downY);
                 if ((downDX > 10 || downDY > 10) && !pointer) {
-                    //autoScroll();
+                    autoScroll();
                 }
 
                 break;
@@ -373,7 +401,7 @@ public class MovieSeatView extends View {
                         zoomAnimate(currentScaleY, 1.9f);
                     }
                     //drawOneSeat(null, row, column);
-                    //invalidate();
+                    invalidate();
                 }
             }
         }
@@ -414,5 +442,98 @@ public class MovieSeatView extends View {
             zoom(mZoom);
         }
 
+    }
+
+
+
+    private void autoScroll() {
+        float currentSeatBitmapWidth = mSeatWidth * mSeatTable[0].length * getMatrixScaleX();
+        float currentSeatBitmapHeight = mSeatHeight * mSeatTable.length * getMatrixScaleY();
+        float moveYLength = 0;
+        float moveXLength = 0;
+
+        //处理左右滑动的情况
+        if (currentSeatBitmapWidth < getWidth()) {
+            if (getTranslateX() < 0 || getMatrixScaleX() < 0) {
+                //计算要移动的距离
+
+                if (getTranslateX() < 0) {
+                    moveXLength = (-getTranslateX()) + 0;
+                } else {
+                    moveXLength = 0 - getTranslateX();
+                }
+
+            }
+        } else {
+
+            if (getTranslateX() < 0 && getTranslateX() + currentSeatBitmapWidth > getWidth()) {
+
+            } else {
+                //往左侧滑动
+                if (getTranslateX() + currentSeatBitmapWidth < getWidth()) {
+                    moveXLength = getWidth() - (getTranslateX() + currentSeatBitmapWidth);
+                } else {
+                    //右侧滑动
+                    moveXLength = -getTranslateX() + 0;
+                }
+            }
+
+        }
+
+        float startYPosition = 0;
+
+        //处理上下滑动
+        if (currentSeatBitmapHeight+0 < getHeight()) {
+
+            if (getTranslateY() < startYPosition) {
+                moveYLength = startYPosition - getTranslateY();
+            } else {
+                moveYLength = -(getTranslateY() - (startYPosition));
+            }
+
+        } else {
+
+            if (getTranslateY() < 0 && getTranslateY() + currentSeatBitmapHeight > getHeight()) {
+
+            } else {
+                //往上滑动
+                if (getTranslateY() + currentSeatBitmapHeight < getHeight()) {
+                    moveYLength = getHeight() - (getTranslateY() + currentSeatBitmapHeight);
+                } else {
+                    moveYLength = -(getTranslateY() - (startYPosition));
+                }
+            }
+        }
+
+        Point start = new Point();
+        start.x = (int) getTranslateX();
+        start.y = (int) getTranslateY();
+
+        Point end = new Point();
+        end.x = (int) (start.x + moveXLength);
+        end.y = (int) (start.y + moveYLength);
+
+        mScroller.startScroll(start.x, start.y, (int) moveXLength, (int) moveYLength, 400);
+    }
+
+
+    private float getTranslateX() {
+        mMatrix.getValues(mMatrixValues);
+        return mMatrixValues[2];
+    }
+
+    private float getTranslateY() {
+        mMatrix.getValues(mMatrixValues);
+        return mMatrixValues[5];
+    }
+
+    private float getMatrixScaleY() {
+        mMatrix.getValues(mMatrixValues);
+        return mMatrixValues[4];
+    }
+
+    private float getMatrixScaleX() {
+        mMatrix.getValues(mMatrixValues);
+        return mMatrixValues[Matrix.MSCALE_X];
     }
 }

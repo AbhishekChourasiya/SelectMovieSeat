@@ -39,8 +39,8 @@ public class SelectMovieSeatActivity extends Activity implements SeatPresenter {
 	}
 
 
-    private int maxRow = 26;
-    private int maxColumn = 60;
+    private int maxRow = 10;
+    private int maxColumn = 12;
     private void initSeatTable() {
         seatTable = new SeatMo[maxRow][maxColumn];// mock data
         for (int i = 0; i < maxRow; i++) {
@@ -50,8 +50,7 @@ public class SelectMovieSeatActivity extends Activity implements SeatPresenter {
                 seat.column = j;
                 seat.rowName = String.valueOf((char)('A' + i));
                 seat.seatName = seat.rowName + " Row" + (j + 1) + " Seat";
-                seat.status = 1;
-                //seat.status = randInt(-2, 1);
+                seat.status = randInt(-2, 1);
                 seatTable[i][j] = seat.status == -2 ? null : seat;
             }
         }
