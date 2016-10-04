@@ -1,6 +1,7 @@
 package com.github.captain_miao.seatview;
 
 import android.animation.AnimatorListenerAdapter;
+import android.animation.TypeEvaluator;
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.Context;
@@ -19,7 +20,6 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.Scroller;
 
 /**
  * @author YanLu
@@ -59,7 +59,6 @@ public class MovieSeatView extends View {
     private SeatPresenter mPresenter;
 
     private Canvas mCanvas;
-    private Scroller mScroller;
     public MovieSeatView(Context context) {
         super(context);
     }
@@ -100,22 +99,28 @@ public class MovieSeatView extends View {
             typedArray.recycle();
             throw new RuntimeException("must has iconSeatOnSale, iconSeatSold and iconSeatSelected");
         }
-        mScroller = new Scroller(context);
     }
 
 
-
+    private boolean mFirstDraw = true;
     @Override
     protected void onDraw(Canvas canvas) {
         if (mSeatTable != null && mSeatTable.length > 0) {
-            drawSeat(canvas);
+            if(mFirstDraw || mRow == -1 || mColumn == -1) {
+                mFirstDraw = false;
+                drawSeat(canvas);
+            } else {
+                drawOneSeat(canvas, mRow, mColumn);
+            }
         }
 
 
     }
 
+    private int mRow = -1;
+    private int mColumn = -1;
     private void drawOneSeat(Canvas canvas, int row , int column) {
-
+        canvas.save();
         if (mIconOnSale == null) {
             mIconOnSale = BitmapFactory.decodeResource(getResources(), mIconOnSaleResId);
             mScaleX = mSeatWidth / mIconOnSale.getWidth();
@@ -156,7 +161,8 @@ public class MovieSeatView extends View {
             }
         }
 
-
+        mRow = -1;
+        mColumn = -1;
     }
 
     private void drawSeat(Canvas canvas) {
@@ -231,16 +237,6 @@ public class MovieSeatView extends View {
         invalidate();
     }
 
-    @Override
-    public void computeScroll() {
-        if (mScroller.computeScrollOffset()) {
-            float x = mScroller.getCurrX() - getTranslateX();
-            float y = mScroller.getCurrY() - getTranslateY();
-            mMatrix.postTranslate(x, y);
-        }
-        invalidate();
-    }
-
     private int downX, downY;
     private boolean pointer;
     int lastX;
@@ -250,7 +246,6 @@ public class MovieSeatView extends View {
         int y = (int) event.getY();
         int x = (int) event.getX();
         super.onTouchEvent(event);
-        Log.d(TAG, mScroller.getCurrX() + "=x, " + mScroller.getCurrY() + "=y");
         View viewGroup = ((View) getParent());
         int startX = viewGroup.getScrollX() ;
         int startY = viewGroup.getScrollY();
@@ -277,18 +272,8 @@ public class MovieSeatView extends View {
                     if ((downDX > 10 || downDY > 10) && !pointer) {
                         int dx = x - lastX;
                         int dy = y - lastY;
-
-                        int sumX = (int) getTranslateX() + dx;
-                        int sumY = (int) getTranslateY() + dy;
-                        int maxW = (int) (mSeatWidth * mSeatTable[0].length * getMatrixScaleX() + 400 * getMatrixScaleX()) - getWidth();
-                        int maxH = (int) (mSeatHeight * mSeatTable.length * getMatrixScaleY() + 400 * getMatrixScaleX()) - getHeight();
-
-                        int offsetX = (sumX <= 200 && sumX >= -maxW) ? dx : 0;
-                        int offsetY = (sumY <= 200 && sumY >= -maxH) ? dy : 0;
-                        if(offsetX != 0 && offsetY != 0) {
-                            mMatrix.postTranslate(offsetX, offsetY);
-                            invalidate();
-                        }
+                        mMatrix.postTranslate(dx, dy);
+                        invalidate();
                     }
                 }
                 break;
@@ -399,9 +384,12 @@ public class MovieSeatView extends View {
                         scaleX = e.getX();
                         scaleY = e.getY();
                         zoomAnimate(currentScaleY, 1.9f);
+                    } else {
+                        mRow = row;
+                        mColumn = column;
+                        //drawOneSeat(null, row, column);
+                        invalidate();
                     }
-                    //drawOneSeat(null, row, column);
-                    invalidate();
                 }
             }
         }
@@ -512,8 +500,7 @@ public class MovieSeatView extends View {
         Point end = new Point();
         end.x = (int) (start.x + moveXLength);
         end.y = (int) (start.y + moveYLength);
-
-        mScroller.startScroll(start.x, start.y, (int) moveXLength, (int) moveYLength, 400);
+        moveAnimate(start, end);
     }
 
 
@@ -535,5 +522,44 @@ public class MovieSeatView extends View {
     private float getMatrixScaleX() {
         mMatrix.getValues(mMatrixValues);
         return mMatrixValues[Matrix.MSCALE_X];
+    }
+
+
+    private void moveAnimate(Point start, Point end) {
+        ValueAnimator valueAnimator = ValueAnimator.ofObject(new MoveEvaluator(), start, end);
+        valueAnimator.setInterpolator(new DecelerateInterpolator());
+        MoveAnimation moveAnimation = new MoveAnimation();
+        valueAnimator.addUpdateListener(moveAnimation);
+        valueAnimator.setDuration(400);
+        valueAnimator.start();
+    }
+
+    private void move(Point p) {
+        float x = p.x - getTranslateX();
+        float y = p.y - getTranslateY();
+        mMatrix.postTranslate(x, y);
+        invalidate();
+    }
+
+    class MoveAnimation implements ValueAnimator.AnimatorUpdateListener {
+
+        @Override
+        public void onAnimationUpdate(ValueAnimator animation) {
+            Point p = (Point) animation.getAnimatedValue();
+
+            move(p);
+        }
+    }
+
+    class MoveEvaluator implements TypeEvaluator {
+
+        @Override
+        public Object evaluate(float fraction, Object startValue, Object endValue) {
+            Point startPoint = (Point) startValue;
+            Point endPoint = (Point) endValue;
+            int x = (int) (startPoint.x + fraction * (endPoint.x - startPoint.x));
+            int y = (int) (startPoint.y + fraction * (endPoint.y - startPoint.y));
+            return new Point(x, y);
+        }
     }
 }
