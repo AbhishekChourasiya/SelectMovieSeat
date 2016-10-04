@@ -50,6 +50,7 @@ public class SelectMovieSeatActivity extends Activity implements SeatPresenter {
                 seat.column = j;
                 seat.rowName = String.valueOf((char)('A' + i));
                 seat.seatName = seat.rowName + " Row" + (j + 1) + " Seat";
+//                seat.status = 1;
                 seat.status = randInt(-2, 1);
                 seatTable[i][j] = seat.status == -2 ? null : seat;
             }

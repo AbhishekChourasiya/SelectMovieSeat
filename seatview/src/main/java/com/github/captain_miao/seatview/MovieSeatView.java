@@ -1,7 +1,5 @@
 package com.github.captain_miao.seatview;
 
-import android.animation.AnimatorListenerAdapter;
-import android.animation.TypeEvaluator;
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.content.Context;
@@ -11,15 +9,15 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Point;
 import android.os.Build;
+import android.support.v4.view.GestureDetectorCompat;
+import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator;
 
 /**
  * @author YanLu
@@ -29,36 +27,49 @@ public class MovieSeatView extends View {
     private static final String TAG = "MovieSeatView";
     public final boolean isDebug = true;
 
+    private BaseSeatMo[][] mSeatTable;
+    private int mRowSize;
+    private int mColumnSize;
+
+    // scale
+    public float mScaleFactor = 1.f;
+    public float mScaleFactorMinBest = 1.4f;
+    public float mScaleFactorMaxBest = 2f;
+    public float mScaleFactorMin = 0.5f;
+    public float mScaleFactorMax = 3.0f;
+    // move
+    public int mTranslateX  = 0;
+    public int mTranslateY  = 0;
+
+    private GestureDetectorCompat mGestureDetector;
+    private ScaleGestureDetector mScaleGestureDetector;
+
     private int mIconOnSaleResId;
     private int mIconSoldResId;
     private int mIconSelectedResId;
-
-    private float mSeatWidth;
-    private float mSeatHeight;
-    private boolean mShowOverview;
-
-
 
     private Bitmap mIconOnSale;
     private Bitmap mIconSold;
     private Bitmap mIconSelected;
 
 
-    private Paint mPaint = new Paint();
 
 
-    private BaseSeatMo[][] mSeatTable;
+    // view width and height
+    int mSeatPadding;
+    int mViewWidth;
+    int mViewHeight;
+    private float mSeatWidth;
+    private float mSeatHeight;
+    private boolean mShowOverview;
+
+
+
     private Matrix mMatrix = new Matrix();
-    private Matrix mDrawMatrix = new Matrix();
-    float[] mMatrixValues = new float[9];
-
-    private float mScaleX;
-    private float mScaleY;
-    private float mZoom;
 
     private SeatPresenter mPresenter;
 
-    private Canvas mCanvas;
+
     public MovieSeatView(Context context) {
         super(context);
     }
@@ -87,91 +98,55 @@ public class MovieSeatView extends View {
             mIconSoldResId = typedArray.getResourceId(R.styleable.MovieSeatView_iconSold, 0);
             mIconSelectedResId = typedArray.getResourceId(R.styleable.MovieSeatView_iconSelected, 0);
 
-            float seatPadding = typedArray.getDimension(R.styleable.MovieSeatView_seatPadding, 0);
+            mSeatPadding = (int) (typedArray.getDimension(R.styleable.MovieSeatView_seatPadding, 0f) + 0.5f);
             mSeatWidth = typedArray.getDimension(R.styleable.MovieSeatView_seatWidth,
-                    getResources().getDimension(R.dimen.default_seat_width)) + seatPadding;
+                    getResources().getDimension(R.dimen.default_seat_width));
             mSeatHeight = typedArray.getDimension(R.styleable.MovieSeatView_seatHeight,
-                    getResources().getDimension(R.dimen.default_seat_height)) + seatPadding;
+                    getResources().getDimension(R.dimen.default_seat_height));
             mShowOverview = typedArray.getBoolean(R.styleable.MovieSeatView_showOverView, true);
+            mScaleFactorMin = typedArray.getFloat(R.styleable.MovieSeatView_seatScaleFactorMin, mScaleFactorMin);
+            mScaleFactorMinBest = typedArray.getFloat(R.styleable.MovieSeatView_seatScaleFactorMinBest, mScaleFactorMinBest);
+            mScaleFactorMax = typedArray.getFloat(R.styleable.MovieSeatView_seatScaleFactorMax, mScaleFactorMax);
+            mScaleFactorMaxBest = typedArray.getFloat(R.styleable.MovieSeatView_seatScaleFactorMaxBest, mScaleFactorMaxBest);
 
             typedArray.recycle();
         } else {
             typedArray.recycle();
             throw new RuntimeException("must has iconSeatOnSale, iconSeatSold and iconSeatSelected");
         }
+
+
+        mScaleGestureDetector = new ScaleGestureDetector(getContext(), mScaleGestureListener);
+        mGestureDetector = new GestureDetectorCompat(getContext(), mGestureListener);
     }
 
 
-    private boolean mFirstDraw = true;
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+
+        boolean retVal = mScaleGestureDetector.onTouchEvent(event);
+        retVal = mGestureDetector.onTouchEvent(event) || retVal;
+        return retVal || super.onTouchEvent(event);
+
+    }
+
+
+
+
     @Override
     protected void onDraw(Canvas canvas) {
         if (mSeatTable != null && mSeatTable.length > 0) {
-            if(mFirstDraw || mRow == -1 || mColumn == -1) {
-                mFirstDraw = false;
-                drawSeat(canvas);
-            } else {
-                drawOneSeat(canvas, mRow, mColumn);
-            }
+            drawSeat(canvas);
         }
-
-
     }
 
-    private int mRow = -1;
-    private int mColumn = -1;
-    private void drawOneSeat(Canvas canvas, int row , int column) {
-        canvas.save();
-        if (mIconOnSale == null) {
-            mIconOnSale = BitmapFactory.decodeResource(getResources(), mIconOnSaleResId);
-            mScaleX = mSeatWidth / mIconOnSale.getWidth();
-            mScaleY = mSeatHeight / mIconOnSale.getHeight();
-        }
-        if (mIconSold == null) {
-            mIconSold = BitmapFactory.decodeResource(getResources(), mIconSoldResId);
-        }
-        if (mIconSelected == null) {
-            mIconSelected = BitmapFactory.decodeResource(getResources(), mIconSelectedResId);
-        }
 
-        mZoom = getMatrixValue(Matrix.MSCALE_X);
-        float translateX = getMatrixValue(Matrix.MTRANS_X);
-        float translateY = getMatrixValue(Matrix.MTRANS_Y);
-        float scaleX = mZoom;
-        float scaleY = mZoom;
-        float top = row * mSeatHeight * scaleY + translateY;
-
-
-        float left = row * mSeatWidth * scaleX + translateX;
-
-
-        mDrawMatrix.setTranslate(left, top);
-        mDrawMatrix.postScale(mScaleX, mScaleY, left, top);
-        mDrawMatrix.postScale(scaleX, scaleY, left, top);
-
-        BaseSeatMo seat = mSeatTable[row][column];
-        if (seat != null) {
-            if (seat.isOnSale()) {
-                canvas.drawBitmap(mIconOnSale, mDrawMatrix, mPaint);
-            } else if (seat.isSold()) {
-                canvas.drawBitmap(mIconSold, mDrawMatrix, mPaint);
-            } else if (seat.isSelected()) {
-                canvas.drawBitmap(mIconSelected, mDrawMatrix, mPaint);
-            } else {
-                //Log.d(TAG, "It's skip " + seat.getSeatName());
-            }
-        }
-
-        mRow = -1;
-        mColumn = -1;
-    }
-
+    Paint paint = new Paint();
     private void drawSeat(Canvas canvas) {
         long startTime = System.currentTimeMillis();
-
         if(mIconOnSale == null){
             mIconOnSale = BitmapFactory.decodeResource(getResources(), mIconOnSaleResId);
-            mScaleX = mSeatWidth / mIconOnSale.getWidth();
-            mScaleY = mSeatHeight / mIconOnSale.getHeight();
+            mScaleFactor = mSeatWidth / mIconOnSale.getWidth();
         }
         if(mIconSold == null){
             mIconSold = BitmapFactory.decodeResource(getResources(), mIconSoldResId);
@@ -179,49 +154,37 @@ public class MovieSeatView extends View {
         if(mIconSelected == null){
             mIconSelected = BitmapFactory.decodeResource(getResources(), mIconSelectedResId);
         }
+        int seatWidth = (int) (mSeatWidth * mScaleFactor);
+        int seatHeight = (int) (mSeatHeight * mScaleFactor);
+        int seatPadding = (int) (mSeatPadding * mScaleFactor);
 
-        mZoom = getMatrixValue(Matrix.MSCALE_X);
-        float translateX = getMatrixValue(Matrix.MTRANS_X);
-        float translateY = getMatrixValue(Matrix.MTRANS_Y);
-        float scaleX = mZoom;
-        float scaleY = mZoom;
-        int row = mSeatTable.length;
-        int column = mSeatTable[0].length;
-        for (int i = 0; i < row; i++) {
-            float top = i * mSeatHeight * scaleY+ translateY;
+        // draw begin
+        mViewWidth = getMeasuredWidth();
+        mViewHeight = getMeasuredHeight();
 
-            float bottom = top + mSeatHeight * scaleY;
-            // ?
-            if (bottom < 0 || top > getHeight()) {
-                continue;
-            }
+        int m = mTranslateY + seatHeight;
+        m = m >= 0 ? 0 : -m / seatHeight;
+        int n = Math.min(mRowSize - 1, m + (mViewHeight / seatHeight) + 2);//两边多显示1列,避免临界的突然消失的现象
 
-            for (int j = 0; j < column; j++) {
-                float left = j * mSeatWidth * scaleX + translateX;
-
-                float right = (left + mSeatWidth * scaleY);
-                if (right < 0 || left > getWidth()) {
-                    continue;
-                }
-
-                mDrawMatrix.setTranslate(left, top);
-                mDrawMatrix.postScale(mScaleX, mScaleY, left, top);
-                mDrawMatrix.postScale(scaleX, scaleY, left, top);
-
+        int k = (int)(mTranslateX + seatWidth + 0.5f);
+        k = k > 0 ? 0 : -k / seatWidth;
+        int l = Math.min(mColumnSize - 1, k + (mViewWidth / seatWidth) + 2);// draw +2 column
+        for (int i = m; i <= n; i++) {
+            for (int j = k; j <= l; j++) {
                 BaseSeatMo seat = mSeatTable[i][j];
+                int left = seatPadding + j * (seatWidth + mSeatPadding ) + mTranslateX;
+                int top = seatPadding + i * (seatHeight + mSeatPadding) + mTranslateY;
+                mMatrix.setTranslate(left, top);
+                mMatrix.postScale(mScaleFactor, mScaleFactor, left, top);
                 if(seat != null) {
                     if (seat.isOnSale()) {
-                        canvas.drawBitmap(mIconOnSale, mDrawMatrix, mPaint);
+                        canvas.drawBitmap(mIconOnSale, mMatrix, paint);
                     } else if (seat.isSold()) {
-                        canvas.drawBitmap(mIconSold, mDrawMatrix, mPaint);
+                        canvas.drawBitmap(mIconSold, mMatrix, paint);
                     } else if (seat.isSelected()) {
-                        canvas.drawBitmap(mIconSelected, mDrawMatrix, mPaint);
-                    } else {
-                        //Log.d(TAG, "It's skip " + seat.getSeatName());
+                        canvas.drawBitmap(mIconSelected, mMatrix, paint);
                     }
                 }
-
-
             }
         }
 
@@ -234,71 +197,9 @@ public class MovieSeatView extends View {
 
     public void setSeatTable(BaseSeatMo[][] seatTable) {
         this.mSeatTable = seatTable;
+        mRowSize = mSeatTable.length;
+        mColumnSize = mSeatTable[0].length;
         invalidate();
-    }
-
-    private int downX, downY;
-    private boolean pointer;
-    int lastX;
-    int lastY;
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        int y = (int) event.getY();
-        int x = (int) event.getX();
-        super.onTouchEvent(event);
-        View viewGroup = ((View) getParent());
-        int startX = viewGroup.getScrollX() ;
-        int startY = viewGroup.getScrollY();
-
-        Log.d(TAG, startX + "=getScrollX(), " + startY + "=getScrollY()");
-        mScaleGestureDetector.onTouchEvent(event);
-        mGestureDetector.onTouchEvent(event);
-        int pointerCount = event.getPointerCount();
-        if (pointerCount > 1) {
-            pointer = true;
-        }
-
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                pointer = false;
-                downX = x;
-                downY = y;
-                invalidate();
-                break;
-            case MotionEvent.ACTION_MOVE:
-                if (!mScaling) {
-                    int downDX = Math.abs(x - downX);
-                    int downDY = Math.abs(y - downY);
-                    if ((downDX > 10 || downDY > 10) && !pointer) {
-                        int dx = x - lastX;
-                        int dy = y - lastY;
-                        mMatrix.postTranslate(dx, dy);
-                        invalidate();
-                    }
-                }
-                break;
-            case MotionEvent.ACTION_UP:
-                autoScale();
-
-                int downDX = Math.abs(x - downX);
-                int downDY = Math.abs(y - downY);
-                if ((downDX > 10 || downDY > 10) && !pointer) {
-                    autoScroll();
-                }
-
-                break;
-        }
-        lastY = y;
-        lastX = x;
-
-        return true;
-    }
-
-
-
-    private float getMatrixValue(int matrixType) {
-        mMatrix.getValues(mMatrixValues);
-        return mMatrixValues[matrixType];
     }
 
     public SeatPresenter getPresenter() {
@@ -309,86 +210,84 @@ public class MovieSeatView extends View {
         mPresenter = presenter;
     }
 
-    private boolean mScaling;
-    private boolean mFirstScale;
-    float scaleX, scaleY;
-    ScaleGestureDetector mScaleGestureDetector = new ScaleGestureDetector(getContext(),
-            new ScaleGestureDetector.OnScaleGestureListener() {
+
+
+    /**
+     * The scale listener, used for handling multi-finger scale gestures.
+     */
+    private final ScaleGestureDetector.OnScaleGestureListener mScaleGestureListener
+            = new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
-            mScaling = true;
-            float scaleFactor = detector.getScaleFactor();
-            if (getMatrixValue(Matrix.MSCALE_Y) * scaleFactor > 3) {
-                scaleFactor = 3 / getMatrixValue(Matrix.MSCALE_Y);
-            }
-            if (mFirstScale) {
-                scaleX = detector.getCurrentSpanX();
-                scaleY = detector.getCurrentSpanY();
-                mFirstScale = false;
-            }
-
-            if (getMatrixValue(Matrix.MSCALE_Y) * scaleFactor < 0.5) {
-                scaleFactor = 0.5f / getMatrixValue(Matrix.MSCALE_Y);
-            }
-            mMatrix.postScale(scaleFactor, scaleFactor, scaleX, scaleY);
-            invalidate();
-            return true;
-        }
-
-        @Override
-        public boolean onScaleBegin(ScaleGestureDetector detector) {
+            mScaleFactor *= detector.getScaleFactor(); // scale change since previous event
+            mScaleFactor = Math.max(mScaleFactorMin, Math.min(mScaleFactor, mScaleFactorMax));
+            ViewCompat.postInvalidateOnAnimation(MovieSeatView.this);
             return true;
         }
 
         @Override
         public void onScaleEnd(ScaleGestureDetector detector) {
-            mScaling = false;
-            mFirstScale = true;
+            if(mScaleFactor < mScaleFactorMinBest){
+                mZoomAnimation.start(mScaleFactor, mScaleFactorMinBest);
+            } else if(mScaleFactor > mScaleFactorMaxBest){
+                mZoomAnimation.start(mScaleFactor, mScaleFactorMaxBest);
+            } else {
+                ViewCompat.postInvalidateOnAnimation(MovieSeatView.this);
+            }
         }
-    });
+    };
 
-    GestureDetector mGestureDetector = new GestureDetector(getContext(), new GestureDetector.SimpleOnGestureListener() {
+
+    /**
+     * The gesture listener, used for handling simple gestures such as double touches, scrolls,
+     * and flings.
+     */
+    private final GestureDetector.SimpleOnGestureListener mGestureListener
+                = new GestureDetector.SimpleOnGestureListener() {
+
         @Override
-        public boolean onSingleTapConfirmed(MotionEvent e) {
-
-            onClickSeat(e);
-            return super.onSingleTapConfirmed(e);
+        public boolean onDown(MotionEvent e) {
+            return true;
         }
-    });
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            mTranslateX -= distanceX;
+            mTranslateY -= distanceY;
+            ViewCompat.postInvalidateOnAnimation(MovieSeatView.this);
+
+            return true;
+        }
+
+        @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+            return onClickSeat(e);
+        }
+
+    };
 
 
 
-    boolean isNeedDrawSeatBitmap = true;
-
-    boolean isDrawOverviewBitmap = false;
     private boolean onClickSeat(MotionEvent e) {
-        float x = e.getX() - getMatrixValue(Matrix.MTRANS_X);
-        float y = e.getY() - getMatrixValue(Matrix.MTRANS_Y);
-        float rowNum = mSeatTable.length;
-        float columnNum = mSeatTable[0].length;
-        float w = (mSeatWidth) * getMatrixValue(Matrix.MSCALE_X);
-        float h = (mSeatHeight) * getMatrixValue(Matrix.MSCALE_Y);
+        float x = e.getX() - mTranslateX;
+        float y = e.getY() - mTranslateY;
+        float w = (mSeatWidth + mSeatPadding) * mScaleFactor;
+        float h = (mSeatHeight + mSeatPadding) * mScaleFactor;
         int positionRow = (int)(y / h);
         int positionColumn = (int)( x / w);
-        int row = positionRow <= rowNum ? positionRow: -1;
-        int column = positionColumn <= columnNum ? positionColumn: -1;
+        int row = positionRow < mRowSize ? positionRow: -1;
+        int column = positionColumn < mColumnSize ? positionColumn: -1;
         if(row >= 0 && column >= 0) {
             BaseSeatMo seat = mSeatTable[row][column];
             if (seat != null) {
                 if (mPresenter != null && mPresenter.onClickSeat(row, column, seat)) {
-                    isNeedDrawSeatBitmap = true;
-                    isDrawOverviewBitmap = true;
-                    float currentScaleY = getMatrixValue(Matrix.MSCALE_Y);
-
-                    if (currentScaleY < 1.7) {
-                        scaleX = e.getX();
-                        scaleY = e.getY();
-                        zoomAnimate(currentScaleY, 1.9f);
+                    if(mScaleFactor < mScaleFactorMinBest){
+                        mZoomAnimation.start(mScaleFactor, mScaleFactorMinBest);
+                    } else if(mScaleFactor > mScaleFactorMaxBest){
+                        mZoomAnimation.start(mScaleFactor, mScaleFactorMaxBest);
                     } else {
-                        mRow = row;
-                        mColumn = column;
-                        //drawOneSeat(null, row, column);
-                        invalidate();
+                        ViewCompat.postInvalidateOnAnimation(MovieSeatView.this);
                     }
                 }
             }
@@ -397,169 +296,29 @@ public class MovieSeatView extends View {
         return true;
     }
 
-    private void autoScale() {
 
-        if (getMatrixValue(Matrix.MSCALE_X) > 2.2) {
-            zoomAnimate(getMatrixValue(Matrix.MSCALE_X), 2.0f);
-        } else if (getMatrixValue(Matrix.MSCALE_X) < 0.98) {
-            zoomAnimate(getMatrixValue(Matrix.MSCALE_X), 1.0f);
-        }
-    }
-
-    private void zoom(float zoom) {
-        float z = zoom / getMatrixValue(Matrix.MSCALE_X);
-        mMatrix.postScale(z, z, scaleX, scaleY);
-        invalidate();
-    }
-
-    private void zoomAnimate(float cur, float tar) {
-        ValueAnimator valueAnimator = ValueAnimator.ofFloat(cur, tar);
-        valueAnimator.setInterpolator(new DecelerateInterpolator());
-        ZoomAnimation zoomAnim = new ZoomAnimation();
-        valueAnimator.addUpdateListener(zoomAnim);
-        valueAnimator.addListener(zoomAnim);
-        valueAnimator.setDuration(400);
-        valueAnimator.start();
-    }
-
-    class ZoomAnimation extends AnimatorListenerAdapter implements ValueAnimator.AnimatorUpdateListener {
-
+    ValuesAnimation<Float> mZoomAnimation = new ValuesAnimation<Float>(getContext()) {
         @Override
         public void onAnimationUpdate(ValueAnimator animation) {
-            mZoom = (Float) animation.getAnimatedValue();
-            zoom(mZoom);
+            mScaleFactor = (float) animation.getAnimatedValue();
+            ViewCompat.postInvalidateOnAnimation(MovieSeatView.this);
         }
-
-    }
-
-
-
-    private void autoScroll() {
-        float currentSeatBitmapWidth = mSeatWidth * mSeatTable[0].length * getMatrixScaleX();
-        float currentSeatBitmapHeight = mSeatHeight * mSeatTable.length * getMatrixScaleY();
-        float moveYLength = 0;
-        float moveXLength = 0;
-
-        //处理左右滑动的情况
-        if (currentSeatBitmapWidth < getWidth()) {
-            if (getTranslateX() < 0 || getMatrixScaleX() < 0) {
-                //计算要移动的距离
-
-                if (getTranslateX() < 0) {
-                    moveXLength = (-getTranslateX()) + 0;
-                } else {
-                    moveXLength = 0 - getTranslateX();
-                }
-
-            }
-        } else {
-
-            if (getTranslateX() < 0 && getTranslateX() + currentSeatBitmapWidth > getWidth()) {
-
-            } else {
-                //往左侧滑动
-                if (getTranslateX() + currentSeatBitmapWidth < getWidth()) {
-                    moveXLength = getWidth() - (getTranslateX() + currentSeatBitmapWidth);
-                } else {
-                    //右侧滑动
-                    moveXLength = -getTranslateX() + 0;
-                }
-            }
-
-        }
-
-        float startYPosition = 0;
-
-        //处理上下滑动
-        if (currentSeatBitmapHeight+0 < getHeight()) {
-
-            if (getTranslateY() < startYPosition) {
-                moveYLength = startYPosition - getTranslateY();
-            } else {
-                moveYLength = -(getTranslateY() - (startYPosition));
-            }
-
-        } else {
-
-            if (getTranslateY() < 0 && getTranslateY() + currentSeatBitmapHeight > getHeight()) {
-
-            } else {
-                //往上滑动
-                if (getTranslateY() + currentSeatBitmapHeight < getHeight()) {
-                    moveYLength = getHeight() - (getTranslateY() + currentSeatBitmapHeight);
-                } else {
-                    moveYLength = -(getTranslateY() - (startYPosition));
-                }
-            }
-        }
-
-        Point start = new Point();
-        start.x = (int) getTranslateX();
-        start.y = (int) getTranslateY();
-
-        Point end = new Point();
-        end.x = (int) (start.x + moveXLength);
-        end.y = (int) (start.y + moveYLength);
-        moveAnimate(start, end);
-    }
-
-
-    private float getTranslateX() {
-        mMatrix.getValues(mMatrixValues);
-        return mMatrixValues[2];
-    }
-
-    private float getTranslateY() {
-        mMatrix.getValues(mMatrixValues);
-        return mMatrixValues[5];
-    }
-
-    private float getMatrixScaleY() {
-        mMatrix.getValues(mMatrixValues);
-        return mMatrixValues[4];
-    }
-
-    private float getMatrixScaleX() {
-        mMatrix.getValues(mMatrixValues);
-        return mMatrixValues[Matrix.MSCALE_X];
-    }
-
-
-    private void moveAnimate(Point start, Point end) {
-        ValueAnimator valueAnimator = ValueAnimator.ofObject(new MoveEvaluator(), start, end);
-        valueAnimator.setInterpolator(new DecelerateInterpolator());
-        MoveAnimation moveAnimation = new MoveAnimation();
-        valueAnimator.addUpdateListener(moveAnimation);
-        valueAnimator.setDuration(400);
-        valueAnimator.start();
-    }
-
-    private void move(Point p) {
-        float x = p.x - getTranslateX();
-        float y = p.y - getTranslateY();
-        mMatrix.postTranslate(x, y);
-        invalidate();
-    }
-
-    class MoveAnimation implements ValueAnimator.AnimatorUpdateListener {
 
         @Override
-        public void onAnimationUpdate(ValueAnimator animation) {
-            Point p = (Point) animation.getAnimatedValue();
-
-            move(p);
+        public Float evaluate(float fraction, Float startValue, Float endValue) {
+            return startValue + (fraction) * (endValue - startValue);
         }
-    }
+    };
 
-    class MoveEvaluator implements TypeEvaluator {
+    ValuesAnimation mMoveAnimation = new ValuesAnimation(getContext()) {
+        @Override
+        public void onAnimationUpdate(ValueAnimator animation) {
+
+        }
 
         @Override
         public Object evaluate(float fraction, Object startValue, Object endValue) {
-            Point startPoint = (Point) startValue;
-            Point endPoint = (Point) endValue;
-            int x = (int) (startPoint.x + fraction * (endPoint.x - startPoint.x));
-            int y = (int) (startPoint.y + fraction * (endPoint.y - startPoint.y));
-            return new Point(x, y);
+            return null;
         }
-    }
+    };
 }

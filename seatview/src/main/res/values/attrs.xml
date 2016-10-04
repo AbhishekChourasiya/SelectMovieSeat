@@ -11,6 +11,10 @@
 
         <attr name="seatWidth" format="dimension" />
         <attr name="seatHeight" format="dimension" />
+        <attr name="seatScaleFactorMin" format="float" />
+        <attr name="seatScaleFactorMinBest" format="float" />
+        <attr name="seatScaleFactorMax" format="float" />
+        <attr name="seatScaleFactorMaxBest" format="float" />
 
         <attr name="rowNumberTextSize" format="dimension" />
         <attr name="rowNumberTextColor" format="color|reference" />

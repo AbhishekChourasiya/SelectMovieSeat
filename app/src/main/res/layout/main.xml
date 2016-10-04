@@ -18,12 +18,17 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@+id/tv_cinema_screen"
+        app:seatWidth="@dimen/padding_30dp"
+        app:seatHeight="@dimen/padding_30dp"
         app:seatPadding="@dimen/padding_2dp"
+        app:seatScaleFactorMinBest="1.4"
+        app:seatScaleFactorMaxBest="1.8"
+        app:seatScaleFactorMin="0.5"
+        app:seatScaleFactorMax="3"
         app:iconOnSale="@drawable/seat_sale"
         app:iconSold="@drawable/seat_sold"
         app:iconSelected="@drawable/seat_selected"
-        >
-    </com.github.captain_miao.seatview.MovieSeatView>
+        />
 
 
 </RelativeLayout>

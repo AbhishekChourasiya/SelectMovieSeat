@@ -5,6 +5,7 @@ Code refactoring
 
 ## Thanks：
 qifengdeqingchen/SeatTable：[SeatTable](https://github.com/qifengdeqingchen/SeatTable)
+InteractiveLineGraphView：[SeatTable](https://github.com/ShawnRacine/InteractiveLineGraphView.git)
 
 
 ### Screenshot  
