@@ -32,7 +32,9 @@ public class MovieSeatView extends View {
     private int mColumnSize;
 
     // scale
-    public float mScaleFactor = 1.f;
+    public float mScaleX4Padding = 1.f;
+    public float mScaleY4Padding = 1.f;
+    public float mScaleFactor   = 1.f;
     public float mScaleFactorMinBest = 1.4f;
     public float mScaleFactorMaxBest = 2f;
     public float mScaleFactorMin = 0.5f;
@@ -98,11 +100,11 @@ public class MovieSeatView extends View {
             mIconSoldResId = typedArray.getResourceId(R.styleable.MovieSeatView_iconSold, 0);
             mIconSelectedResId = typedArray.getResourceId(R.styleable.MovieSeatView_iconSelected, 0);
 
-            mSeatPadding = (int) (typedArray.getDimension(R.styleable.MovieSeatView_seatPadding, 0f) + 0.5f);
+            mSeatPadding = (int) (typedArray.getDimension(R.styleable.MovieSeatView_seatPadding, 0f) + 0.5f) * 2;
             mSeatWidth = typedArray.getDimension(R.styleable.MovieSeatView_seatWidth,
-                    getResources().getDimension(R.dimen.default_seat_width));
+                    getResources().getDimension(R.dimen.default_seat_width)) + mSeatPadding;
             mSeatHeight = typedArray.getDimension(R.styleable.MovieSeatView_seatHeight,
-                    getResources().getDimension(R.dimen.default_seat_height));
+                    getResources().getDimension(R.dimen.default_seat_height)) + mSeatPadding;
             mShowOverview = typedArray.getBoolean(R.styleable.MovieSeatView_showOverView, true);
             mScaleFactorMin = typedArray.getFloat(R.styleable.MovieSeatView_seatScaleFactorMin, mScaleFactorMin);
             mScaleFactorMinBest = typedArray.getFloat(R.styleable.MovieSeatView_seatScaleFactorMinBest, mScaleFactorMinBest);
@@ -156,8 +158,8 @@ public class MovieSeatView extends View {
         }
         int seatWidth = (int) (mSeatWidth * mScaleFactor);
         int seatHeight = (int) (mSeatHeight * mScaleFactor);
-        int seatPadding = (int) (mSeatPadding * mScaleFactor);
-
+        mScaleX4Padding = 1 - mSeatPadding / (mSeatWidth * mScaleFactor);
+        mScaleY4Padding = 1 - mSeatPadding / (mSeatHeight * mScaleFactor);
         // draw begin
         mViewWidth = getMeasuredWidth();
         mViewHeight = getMeasuredHeight();
@@ -172,10 +174,11 @@ public class MovieSeatView extends View {
         for (int i = m; i <= n; i++) {
             for (int j = k; j <= l; j++) {
                 BaseSeatMo seat = mSeatTable[i][j];
-                int left = seatPadding + j * (seatWidth + mSeatPadding ) + mTranslateX;
-                int top = seatPadding + i * (seatHeight + mSeatPadding) + mTranslateY;
+                int left = j * (seatWidth ) + mTranslateX;
+                int top = i * (seatHeight) + mTranslateY;
                 mMatrix.setTranslate(left, top);
                 mMatrix.postScale(mScaleFactor, mScaleFactor, left, top);
+                mMatrix.postScale(mScaleX4Padding, mScaleY4Padding, left, top);
                 if(seat != null) {
                     if (seat.isOnSale()) {
                         canvas.drawBitmap(mIconOnSale, mMatrix, paint);
@@ -272,8 +275,8 @@ public class MovieSeatView extends View {
     private boolean onClickSeat(MotionEvent e) {
         float x = e.getX() - mTranslateX;
         float y = e.getY() - mTranslateY;
-        float w = (mSeatWidth + mSeatPadding) * mScaleFactor;
-        float h = (mSeatHeight + mSeatPadding) * mScaleFactor;
+        float w = (mSeatWidth) * mScaleFactor;
+        float h = (mSeatHeight) * mScaleFactor;
         int positionRow = (int)(y / h);
         int positionColumn = (int)( x / w);
         int row = positionRow < mRowSize ? positionRow: -1;
